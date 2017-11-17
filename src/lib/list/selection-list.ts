@@ -346,14 +346,12 @@ export class MatSelectionList extends _MatSelectionListMixinBase implements Focu
         }
       }
 
-      // Update last selected option
+      // Removes highlighted text from shift being enabled
+      this._removeTextSelection();
+
+      // Updates last selected option
       this._keyManager.updateActiveItemIndex(this._getOptionIndex(option));
     }
-
-    // this.selectedOptions.selected.forEach(option => {
-    //   console.log(this._getOptionIndex(option));
-    // });
-
   }
 
   /**
@@ -369,5 +367,16 @@ export class MatSelectionList extends _MatSelectionListMixinBase implements Focu
   /** Returns the index of the specified list option. */
   private _getOptionIndex(option: MatListOption): number {
     return this.options.toArray().indexOf(option);
+  }
+
+  /** Clears text selection */
+  private _removeTextSelection(): void {
+
+    // Check for window or document getSelection
+    if (window.getSelection) {
+      window.getSelection().removeAllRanges();
+    } else if (document.getSelection) {
+      document.getSelection().empty();
+    }
   }
 }
