@@ -9,7 +9,7 @@
 import {FocusableOption, FocusKeyManager} from '@angular/cdk/a11y';
 import {coerceBooleanProperty} from '@angular/cdk/coercion';
 import {SelectionModel} from '@angular/cdk/collections';
-import {SPACE} from '@angular/cdk/keycodes';
+import {SPACE, SHIFT} from '@angular/cdk/keycodes';
 import {
   AfterContentInit,
   Attribute,
@@ -204,6 +204,7 @@ export class MatListOption extends _MatListOptionMixinBase
     'class': 'mat-selection-list',
     '(focus)': 'focus()',
     '(keydown)': '_keydown($event)',
+    '(keyup)': '_keyup($event)',
     '[attr.aria-disabled]': 'disabled.toString()'},
   template: '<ng-content></ng-content>',
   styleUrls: ['list.css'],
@@ -222,6 +223,9 @@ export class MatSelectionList extends _MatSelectionListMixinBase implements Focu
 
   /** The currently selected options. */
   selectedOptions: SelectionModel<MatListOption> = new SelectionModel<MatListOption>(true);
+
+  /** The status of a shift key press for multiple option selection */
+  _shiftEnabled = false;
 
   constructor(private _element: ElementRef, @Attribute('tabindex') tabIndex: string) {
     super();
@@ -258,7 +262,13 @@ export class MatSelectionList extends _MatSelectionListMixinBase implements Focu
 
   /** Sets the focused option of the selection-list. */
   _setFocusedOption(option: MatListOption) {
-    this._keyManager.updateActiveItemIndex(this._getOptionIndex(option));
+    // Check if shift key is currently pressed
+
+    if (this._shiftEnabled) {
+      this._selectMultipleOptions(option);
+    } else {
+      this._keyManager.updateActiveItemIndex(this._getOptionIndex(option));
+    }
   }
 
   /** Removes an option from the selection list and updates the active item. */
@@ -283,8 +293,22 @@ export class MatSelectionList extends _MatSelectionListMixinBase implements Focu
         // Always prevent space from scrolling the page since the list has focus
         event.preventDefault();
         break;
+      case SHIFT:
+        this._shiftEnabled = true;
+        break;
       default:
         this._keyManager.onKeydown(event);
+    }
+  }
+
+  /** Detects relevant key releases */
+  _keyup(event: KeyboardEvent) {
+    switch (event.keyCode) {
+      case SHIFT:
+        this._shiftEnabled = false;
+        break;
+      default:
+        break;
     }
   }
 
@@ -299,6 +323,37 @@ export class MatSelectionList extends _MatSelectionListMixinBase implements Focu
         focusedOption.toggle();
       }
     }
+  }
+
+  /** Selects multiple options based on shift press */
+  private _selectMultipleOptions(option: MatListOption) {
+    let previousIndex = this._keyManager.activeItemIndex;
+
+    if (previousIndex != null && this._isValidIndex(previousIndex)) {
+      let previousOption: MatListOption = this.options.toArray()[previousIndex];
+
+      // Checks that previously selected option was not unselected
+      if (previousOption.selected) {
+        let focusedIndex = this._getOptionIndex(option);
+
+        let [lesser, greater] = previousIndex > focusedIndex ?
+          [focusedIndex, previousIndex] : [previousIndex, focusedIndex];
+
+        let optionsArray = this.options.toArray();
+
+        for (let i = lesser + 1; i < greater; i++) {
+          optionsArray[i].selected = true;
+        }
+      }
+
+      // Update last selected option
+      this._keyManager.updateActiveItemIndex(this._getOptionIndex(option));
+    }
+
+    // this.selectedOptions.selected.forEach(option => {
+    //   console.log(this._getOptionIndex(option));
+    // });
+
   }
 
   /**
